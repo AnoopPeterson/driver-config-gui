@@ -1,0 +1,22 @@
+{
+    "driver": {
+        "krishigan": {
+            "xbox": [],
+            "joystick": []
+        },
+        "chris": {
+            "xbox": [],
+            "joystick": []
+        }
+    },
+    "gunner": {
+        "prahalad": {
+            "xbox": [],
+            "joystick": []
+        },
+        "dulguun": {
+            "xbox": [],
+            "joystick": []
+        }
+    }
+}
