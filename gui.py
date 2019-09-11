@@ -1,5 +1,5 @@
 import sys, json, os
-from PyQt5.QtWidgets import (QMainWindow, QApplication, QPushButton, QLineEdit, QComboBox, QWidget, QGridLayout, QGroupBox, QVBoxLayout, QHBoxLayout, QMessageBox)
+from PyQt5.QtWidgets import (QMainWindow, QApplication, QPushButton, QLineEdit, QComboBox, QWidget, QGridLayout, QGroupBox, QVBoxLayout, QHBoxLayout, QMessageBox, QLabel, QTableWidget, QTableWidgetItem)
 from PyQt5.QtCore import pyqtSlot
 
 class MainWin(QWidget):
@@ -18,6 +18,7 @@ class MainWin(QWidget):
 
 	def init_gui(self):
 		self.names = self.pull_names(self.json_data)
+		print(self.names)
 
 		# -- ADD NEW BUTTON CONFIG -- #
 
@@ -25,13 +26,14 @@ class MainWin(QWidget):
 		self.setWindowTitle('Driver/Gunner Profile Configuration')
 		self.setGeometry(self.top_offset, self.left_offset, self.width, self.height)
 
+		# Init name dropdown
+		self.controller_name = QComboBox(self)
+		self.controller_name.addItems(self.names[0]) # Default value
+
 		# Init controller select dropdown
 		self.controller_type = QComboBox(self)
 		self.controller_type.addItems(['Driver', 'Gunner'])
-
-		# Init name dropdown
-		self.controller_name = QComboBox(self)
-		self.controller_name.addItems(self.names)
+		self.controller_type.currentIndexChanged.connect(lambda: self.set_c_names(self.controller_type.currentText(), self.controller_name) )
 		
 		# Init remote select dropdown
 		self.remote_type = QComboBox(self)
@@ -62,12 +64,43 @@ class MainWin(QWidget):
 		self.new_driver_info = [self.new_controller_type, self.new_controller_name, self.add_new_driver]
 		self.add_new_driver.clicked.connect(lambda: self.submit_new_controller(self.new_driver_info))
 
-		# Init save changes button:
+		# -- MODIFY ACTION NAMES AND BUTTON PORTS -- #
+
+		# Init remote select dropdown
+		self.mod_remote_type = QComboBox(self)
+		self.mod_remote_type.addItems(['Xbox', 'Joystick'])
+
+		# Init name select dropdown
+		self.mod_controller_name = QComboBox(self)
+		self.mod_controller_name.addItems(self.names[0])
+
+		# Init type select dropdown
+		self.mod_controller_type = QComboBox(self)
+		self.mod_controller_type.addItems(['Driver', 'Gunner'])
+		self.mod_controller_type.currentIndexChanged.connect(lambda: self.set_c_names(self.mod_controller_type.currentText(), self.mod_controller_name))
+
+		# Init action/key search textbox
+		self.action_search = QLineEdit('Search for action key', self)
+		self.action_search.textChanged.connect(lambda: self.get_corresp_actions(str(self.action_search.text() ).lower() ) )
+
+		# Init display and modify table
+		self.the_only_table = QTableWidget()
+		self.the_only_table.setRowCount(14)
+		self.the_only_table.setColumnCount(2)
+
+		# Init change button mapping button
+		self.submit_mod_config = QPushButton('Save modified config', self)
+		self.mod_config_info = [self.mod_controller_type, self.mod_controller_name, self.mod_remote_type, self.action_search, self.the_only_table, self.submit_mod_config]
+
+		# -- SAVE CHANGES AND EXPORT TO JSON FILE BUTTON -- #
 		self.save_all_changes = QPushButton('Save All Changes', self)
 		self.save_all_changes.clicked.connect(self.save_changes)
+
+		# The bit that draws everything
 		self.grid = QGridLayout()
-		self.grid.addWidget(self.widget_group(self.new_map_info, 'Add new Button Configuration'), 0, 0)
-		self.grid.addWidget(self.widget_group(self.new_driver_info, 'Add new Member'), 1, 0)
+		self.grid.addWidget(self.widget_group(self.new_map_info, 'Add new button configuration'), 0, 0)
+		self.grid.addWidget(self.widget_group(self.new_driver_info, 'Add new member'), 1, 0)
+		self.grid.addWidget(self.widget_group(self.mod_config_info, 'Modify existing button configuration'), 1, 1)
 		self.grid.addWidget(self.save_all_changes, 2, 0)
 		self.setLayout(self.grid)
 
@@ -85,10 +118,10 @@ class MainWin(QWidget):
 
 	# Pulls out names for adding to dropdown list
 	def pull_names(self, json_dict : dict):
-		names = []
-		for controller_type in json_dict:
+		names = [[], []]
+		for i, controller_type in enumerate(json_dict):
 			for name in json_dict[controller_type]:
-				names.append(name)
+				names[i].append(name)
 		return names
 
 	# Easy way of adding any number and type of widgets to grid layout
@@ -102,6 +135,28 @@ class MainWin(QWidget):
 		widget_group.setLayout(vbox)
 
 		return widget_group
+
+	def current_names(self, type : str):
+		return self.names[0] if type == 'driver' else self.names[1]
+
+	@pyqtSlot(str)
+	def get_corresp_actions(self, query : str):
+		possible_answers = []
+		if query != 'search for action key' and query != '':
+			for controller_type in self.json_data:
+				for name in self.json_data[controller_type]:
+					for hid_type in self.json_data[controller_type][name]:
+						for map_val in self.json_data[controller_type][name][hid_type]:
+							if map_val[0].strip(' ').startswith(query):
+								possible_answers.append(map_val)
+
+		print(possible_answers)
+
+	@pyqtSlot(str, QComboBox)
+	def set_c_names(self, type : str, combo_box : QComboBox):
+		self.c_names = self.current_names(type.lower())
+		combo_box.clear()
+		combo_box.addItems(self.c_names)
 
 	@pyqtSlot(list)
 	# Adds new drive team member
@@ -126,17 +181,18 @@ class MainWin(QWidget):
 				'xbox' : [],
 				'joystick' : []
 			}
+			self.names.append(POST[1])
 		else:
 			QMessageBox.about(self, 'Error when adding new member', 'Please enter a name for your member.')
 
-	@pyqtSlot(list)
 
+	@pyqtSlot(list)
 	# -- Submits new custom mapping.
 	def submit_new_config(self, config_info : list):
 
 		# This is essentially a $_POST['type'] situation from PHP put into python		
 		POST = []
-
+		same_elem = False
 		# Formats user inputs to make json file easier to read
 		for widget in config_info:
 			if type(widget) == QComboBox:
@@ -151,12 +207,16 @@ class MainWin(QWidget):
 		# Adds new config to dictionary based off driver type, name, and type of HID, IF all values are non-default AND if action query is correctly formatted
 		if len(POST) > 3 :
 			map_vals = tuple(POST[3].split(': '))
-			if len(map_vals) == 2:
+			if len(map_vals) == 2 and map_vals[1].strip(' ') != '': # They need correct format and need to enter a value
 				for map_tuple in self.json_data[POST[0]][POST[1]][POST[2]]:
-					if map_tuple == map_vals:
-						QMessageBox.about(self, 'Error when adding new configuration', 'That configuration already exists.')
+					if map_tuple[0] == map_vals[0] or map_tuple[1] == map_vals[1]:
+						same_elem = True
+						QMessageBox.about(self, 'Error when adding new configuration', 'The action name and/or the button value already exist..')
 						break
-				self.json_data[POST[0]][POST[1]][POST[2]].append(map_vals)
+
+				if not same_elem: # Kinda jank, but hey, it does its job. maybe find a better way to do this.
+					self.json_data[POST[0]][POST[1]][POST[2]].append(map_vals)
+					print(self.json_data)
 			else:
 				QMessageBox.about(self, 'Error when addding new configuration', 'Invalid format. \n Correct form: action_name: button_id')
 		else:
