@@ -78,15 +78,16 @@ class MainWin(QWidget):
 		self.mod_controller_type = QComboBox(self)
 		self.mod_controller_type.addItems(['Driver', 'Gunner'])
 		self.mod_controller_type.currentIndexChanged.connect(lambda: self.set_c_names(self.mod_controller_type.currentText(), self.mod_controller_name))
-
-		# Init action/key search textbox
-		self.action_search = QLineEdit('Search for action key', self)
-		self.action_search.textChanged.connect(lambda: self.get_corresp_actions(str(self.action_search.text() ).lower() ) )
-
+		
 		# Init display and modify table
 		self.the_only_table = QTableWidget()
 		self.the_only_table.setRowCount(14)
 		self.the_only_table.setColumnCount(2)
+		self.add_all_names()
+
+		# Init action/key search textbox
+		self.action_search = QLineEdit('Search for action key', self)
+		self.action_search.textChanged.connect(lambda: self.get_corresp_actions(str(self.action_search.text() ).lower() ) )
 
 		# Init change button mapping button
 		self.submit_mod_config = QPushButton('Save modified config', self)
@@ -139,6 +140,20 @@ class MainWin(QWidget):
 	def current_names(self, type : str):
 		return self.names[0] if type == 'driver' else self.names[1]
 
+	def add_all_names(self):
+		all_answers = []
+		for controller_type in self.json_data:
+			for name in self.json_data[controller_type]:
+				for hid_type in self.json_data[controller_type][name]:
+					for map_val in self.json_data[controller_type][name][hid_type]:
+						all_answers.append(map_val)
+
+		print(all_answers)
+		for i, answer in enumerate(all_answers):
+			print(answer)
+			self.the_only_table.setItem(i, 0, QTableWidgetItem(answer[0]))
+			self.the_only_table.setItem(i, 1, QTableWidgetItem(answer[1]))
+
 	@pyqtSlot(str)
 	def get_corresp_actions(self, query : str):
 		possible_answers = []
@@ -151,6 +166,11 @@ class MainWin(QWidget):
 								possible_answers.append(map_val)
 
 		print(possible_answers)
+		self.the_only_table.clear()
+		for i, poss_ans in enumerate(possible_answers):
+			print(poss_ans)
+			self.the_only_table.setItem(i, 0, QTableWidgetItem(poss_ans[0]))
+			self.the_only_table.setItem(i, 1, QTableWidgetItem(poss_ans[1]))
 
 	@pyqtSlot(str, QComboBox)
 	def set_c_names(self, type : str, combo_box : QComboBox):

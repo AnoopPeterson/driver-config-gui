@@ -1,4 +1,4 @@
-x = ('1', 3)
-y = ('1', 3)
+x = ['test']
+y = ['test']
 
-print(x == y)
+print(x[0] == y[0])
